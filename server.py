@@ -14,6 +14,8 @@ async def send_to_rabbitmq(message, severity = 'DEBUG'):
             login='syslog', password='DTPdev@2022@',
             virtualhost='/', loop=asyncio.get_event_loop(),
         )
+        
+        exchange_name = 'django'
 
         channel = await protocol.channel()
         if severity == 'DEBUG' or severity == 7 or severity == '7':
@@ -21,32 +23,39 @@ async def send_to_rabbitmq(message, severity = 'DEBUG'):
                 exchange_name='django', type_name='fanout', durable=True
             )
         elif severity == 'INFO' or severity == 6 or severity == '6':
+            exchange_name = 'django_info'
             await channel.exchange_declare(
-                exchange_name='django_info', type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'NOTICE' or severity == 5 or severity == '5':
+            exchange_name = 'django_notice'
             await channel.exchange_declare(
-                exchange_name='django_notice', type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'WARNING' or severity == 4 or severity == '4':
+            exchange_name = 'django_warning'
             await channel.exchange_declare(
-                exchange_name='django_warning', type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'ERROR' or severity == 3 or severity == '3':
+            exchange_name = 'django_error'
             await channel.exchange_declare(
-                exchange_name='django_error', type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'CRITICAL' or severity == 2 or severity == '2':
+            exchange_name = 'django_critical'
             await channel.exchange_declare(
-                exchange_name='django_critical', type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'ALERT' or severity == 1 or severity == '1':
+            exchange_name = 'django_alert'
             await channel.exchange_declare(
-                exchange_name='django_alert', type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'EMERGENCY' or severity == 0 or severity == '' or severity == 'EMERG':
+            exchange_name = 'django_emergency'
             await channel.exchange_declare(
-                exchange_name='django_emergency', type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name='fanout', durable=True
             )
         else:
             await channel.exchange_declare(
@@ -54,11 +63,18 @@ async def send_to_rabbitmq(message, severity = 'DEBUG'):
             )
 
         message = message.encode('utf-8')
+        
+        await channel.basic_publish(
+            payload=message,
+            exchange_name=exchange_name,
+            routing_key='',
+        )
+        
         await channel.basic_publish(
             payload=message,
             exchange_name='django',
             routing_key='',
-        )
+        )        
 
         await protocol.close()
         transport.close()
@@ -113,14 +129,15 @@ class MyProtocol:
 
 async def start_udp_server():
     loop = asyncio.get_running_loop()
+    port = 520
     print(
         make_colors("server listen on", 'lg') + " " + \
         make_colors("0.0.0.0", 'b', 'ly') + ":" + \
-        make_colors("520", 'b', 'lc')
+        make_colors(str(port), 'b', 'lc')
     )
     transport, protocol = await loop.create_datagram_endpoint(
         lambda: MyProtocol(loop),
-        local_addr=('0.0.0.0', 520)
+        local_addr=('0.0.0.0', port)
     )
 
     #try:

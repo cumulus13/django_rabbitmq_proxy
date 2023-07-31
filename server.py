@@ -18,7 +18,7 @@ async def send_to_rabbitmq(message, severity = 'DEBUG'):
         exchange_name = 'django'
 
         channel = await protocol.channel()
-        if severity == 'DEBUG' or severity == 7 or severity == '7':
+        if severity in ('DEBUG', 'debug') or severity == 7 or severity == '7':
             await channel.exchange_declare(
                 exchange_name='django', type_name='fanout', durable=True
             )
@@ -110,15 +110,15 @@ class MyProtocol:
                 json_data = message
                 print(make_colors(json_data, 'lw', 'r'))
                 error = True
-        if not error:
-            if not isinstance(json_data, str) and json_data.get('levelname') == 'DEBUG':
+        if error:
+            asyncio.ensure_future(send_to_rabbitmq(json_data))
+        else:
+            if not isinstance(json_data, str):
                 thd = [send_to_rabbitmq(json_data, json_data.get('levelname')), send_to_rabbitmq(json_data)]
                 tasks = [asyncio.ensure_future(coro) for coro in thd]
                 asyncio.gather(*tasks)
             else:
-                asyncio.ensure_future(send_to_rabbitmq(json_data))
-        else:
-            asyncio.ensure_future(send_to_rabbitmq(json_data))
+                print("Data JSON is String/Text ! ..........")
 
     def error_received(self, exc):
         print('Error received:', exc)

@@ -6,6 +6,8 @@ from jsoncolor import jprint
 from  make_colors import make_colors
 from unidecode import unidecode
 import traceback
+from pydebugger.debug import debug
+import sys
 
 async def send_to_rabbitmq(message, severity = 'DEBUG'):
     try:
@@ -62,7 +64,12 @@ async def send_to_rabbitmq(message, severity = 'DEBUG'):
                 exchange_name='django', type_name='fanout', durable=True
             )
 
-        message = message.encode('utf-8')
+        #debug(message = message)
+        if sys.version_info.major == 2:
+            if hasattr(message, 'decode'): message = message.encode('utf-8')
+        else:
+            if not hasattr(message, 'decode'): message = bytes(message, encoding = "utf-8")
+        
         
         await channel.basic_publish(
             payload=message,
@@ -70,11 +77,11 @@ async def send_to_rabbitmq(message, severity = 'DEBUG'):
             routing_key='',
         )
         
-        await channel.basic_publish(
-            payload=message,
-            exchange_name='django',
-            routing_key='',
-        )        
+        #await channel.basic_publish(
+            #payload=message,
+            #exchange_name='django',
+            #routing_key='',
+        #)        
 
         await protocol.close()
         transport.close()
@@ -99,22 +106,32 @@ class MyProtocol:
                 message = data
         #print(f"Received message: {message}")
         error = False
+        #debug(message = message)
         try:
-            json_data = json.loads(message)
+            json_data = ast.literal_eval(message)
+            json_data = ast.literal_eval(json_data)
+            #debug(json_data = json_data)
             jprint(json_data)
         except:
             try:
-                json_data = ast.literal_eval(message)
+                json_data = json.loads(message)
+                print("ERROR 1")
                 print(make_colors(json_data, 'b', 'lg'))
             except:
+                print("ERROR 2")
                 json_data = message
                 print(make_colors(json_data, 'lw', 'r'))
-                error = True
+                error = traceback.format_exc()
         if error:
-            asyncio.ensure_future(send_to_rabbitmq(json_data))
+            #asyncio.ensure_future(send_to_rabbitmq(json_data))
+            
+            thd = [send_to_rabbitmq(str(json_data), "ERROR"), send_to_rabbitmq(str(error), "ERROR")]
+            tasks = [asyncio.ensure_future(coro) for coro in thd]
+            asyncio.gather(*tasks)            
         else:
+            debug(json_data = json_data)
             if not isinstance(json_data, str):
-                thd = [send_to_rabbitmq(json_data, json_data.get('levelname')), send_to_rabbitmq(json_data)]
+                thd = [send_to_rabbitmq(str(json_data), json_data.get('levelname')), send_to_rabbitmq(str(json_data))]
                 tasks = [asyncio.ensure_future(coro) for coro in thd]
                 asyncio.gather(*tasks)
             else:

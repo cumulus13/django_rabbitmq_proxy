@@ -8,13 +8,14 @@ from unidecode import unidecode
 import traceback
 from pydebugger.debug import debug
 import sys
+import os
 
 async def send_to_rabbitmq(message, severity = 'DEBUG'):
     try:
         transport, protocol = await aioamqp.connect(
-            host='localhost', port=5672,
-            login='syslog', password='DTPdev@2022@',
-            virtualhost='/', loop=asyncio.get_event_loop(),
+            host=os.getenv('RABBITMQ_HOST_DJANGO') or 'localhost', port=os.getenv('RABBITMQ_PORT_DJANGO') or 5672,
+            login=os.getenv('RABBITMQ_USERNAME_DJANGO') or 'syslog', password=os.getenv('RABBITMQ_PASSWORD_DJANGO') or 'DTPdev@2022@',
+            virtualhost=os.getenv('RABBITMQ_VHOST_DJANGO') or '/', loop=asyncio.get_event_loop(),
         )
         
         exchange_name = 'django'
@@ -146,7 +147,7 @@ class MyProtocol:
 
 async def start_udp_server():
     loop = asyncio.get_running_loop()
-    port = 520
+    port = os.getenv('RABBITMQ_LISTEN_PORT_DJANGO') or 520
     print(
         make_colors("server listen on", 'lg') + " " + \
         make_colors("0.0.0.0", 'b', 'ly') + ":" + \

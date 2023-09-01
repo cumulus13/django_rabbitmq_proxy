@@ -1,0 +1,4 @@
+aioamqp
+unidecode
+pydebugger
+git+https://github.com/cumulus13/jsoncolor

@@ -9,6 +9,10 @@ import traceback
 from pydebugger.debug import debug
 import sys
 import os
+from configset import configset
+
+configname = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'server.ini')
+CONFIG = configset(configname)
 
 async def send_to_rabbitmq(message, severity = 'DEBUG'):
     try:
@@ -18,51 +22,51 @@ async def send_to_rabbitmq(message, severity = 'DEBUG'):
             virtualhost=os.getenv('RABBITMQ_VHOST_DJANGO') or '/', loop=asyncio.get_event_loop(),
         )
         
-        exchange_name = 'django'
+        exchange_name = CONFIG.get_config('exchange', 'name') or 'django'
 
         channel = await protocol.channel()
         if severity in ('DEBUG', 'debug') or severity == 7 or severity == '7':
             await channel.exchange_declare(
-                exchange_name='django', type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'INFO' or severity == 6 or severity == '6':
-            exchange_name = 'django_info'
+            exchange_name = exchange_name +  '_info'
             await channel.exchange_declare(
                 exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'NOTICE' or severity == 5 or severity == '5':
-            exchange_name = 'django_notice'
+            exchange_name = exchange_name + '_notice'
             await channel.exchange_declare(
                 exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'WARNING' or severity == 4 or severity == '4':
-            exchange_name = 'django_warning'
+            exchange_name = exchange_name + '_warning'
             await channel.exchange_declare(
                 exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'ERROR' or severity == 3 or severity == '3':
-            exchange_name = 'django_error'
+            exchange_name = exchange_name + '_error'
             await channel.exchange_declare(
                 exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'CRITICAL' or severity == 2 or severity == '2':
-            exchange_name = 'django_critical'
+            exchange_name = exchange_name + '_critical'
             await channel.exchange_declare(
                 exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'ALERT' or severity == 1 or severity == '1':
-            exchange_name = 'django_alert'
+            exchange_name = exchange_name + '_alert'
             await channel.exchange_declare(
                 exchange_name=exchange_name, type_name='fanout', durable=True
             )
         elif severity == 'EMERGENCY' or severity == 0 or severity == '' or severity == 'EMERG':
-            exchange_name = 'django_emergency'
+            exchange_name = exchange_name + '_emergency'
             await channel.exchange_declare(
                 exchange_name=exchange_name, type_name='fanout', durable=True
             )
         else:
             await channel.exchange_declare(
-                exchange_name='django', type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name='fanout', durable=True
             )
 
         #debug(message = message)

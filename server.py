@@ -9,8 +9,10 @@ import traceback
 from pydebugger.debug import debug
 import sys
 import os
+import argparse
+# from configset import configset
 
-async def send_to_rabbitmq(message, severity = 'DEBUG'):
+async def send_to_rabbitmq(message, severity = 'DEBUG', type_name='fanout', durable=True):
     try:
         transport, protocol = await aioamqp.connect(
             host=os.getenv('RABBITMQ_HOST_DJANGO') or 'localhost', port=os.getenv('RABBITMQ_PORT_DJANGO') or 5672,
@@ -23,46 +25,46 @@ async def send_to_rabbitmq(message, severity = 'DEBUG'):
         channel = await protocol.channel()
         if severity in ('DEBUG', 'debug') or severity == 7 or severity == '7':
             await channel.exchange_declare(
-                exchange_name='django', type_name='fanout', durable=True
+                exchange_name='django', type_name=type_name, durable=durable
             )
         elif severity == 'INFO' or severity == 6 or severity == '6':
             exchange_name = 'django_info'
             await channel.exchange_declare(
-                exchange_name=exchange_name, type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name=type_name, durable=durable
             )
         elif severity == 'NOTICE' or severity == 5 or severity == '5':
             exchange_name = 'django_notice'
             await channel.exchange_declare(
-                exchange_name=exchange_name, type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name=type_name, durable=durable
             )
         elif severity == 'WARNING' or severity == 4 or severity == '4':
             exchange_name = 'django_warning'
             await channel.exchange_declare(
-                exchange_name=exchange_name, type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name=type_name, durable=durable
             )
         elif severity == 'ERROR' or severity == 3 or severity == '3':
             exchange_name = 'django_error'
             await channel.exchange_declare(
-                exchange_name=exchange_name, type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name=type_name, durable=durable
             )
         elif severity == 'CRITICAL' or severity == 2 or severity == '2':
             exchange_name = 'django_critical'
             await channel.exchange_declare(
-                exchange_name=exchange_name, type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name=type_name, durable=durable
             )
         elif severity == 'ALERT' or severity == 1 or severity == '1':
             exchange_name = 'django_alert'
             await channel.exchange_declare(
-                exchange_name=exchange_name, type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name=type_name, durable=durable
             )
         elif severity == 'EMERGENCY' or severity == 0 or severity == '' or severity == 'EMERG':
             exchange_name = 'django_emergency'
             await channel.exchange_declare(
-                exchange_name=exchange_name, type_name='fanout', durable=True
+                exchange_name=exchange_name, type_name=type_name, durable=durable
             )
         else:
             await channel.exchange_declare(
-                exchange_name='django', type_name='fanout', durable=True
+                exchange_name='django', type_name=type_name, durable=durable
             )
 
         #debug(message = message)
@@ -90,7 +92,7 @@ async def send_to_rabbitmq(message, severity = 'DEBUG'):
         print("closed connections")
 
 class MyProtocol:
-    def __init__(self, loop):
+    def __init__(self, loop, rabbit_host = '127.0.0.1', rabbit_port = 5672, type_name = 'fanout', durable = True):
         self.loop = loop
 
     def connection_made(self, transport):
@@ -145,17 +147,20 @@ class MyProtocol:
         print('Closing transport')
         self.transport.close()
 
-async def start_udp_server():
+async def start_udp_server(host: str = "0.0.0.0", port: int = 520, rabbit_host:str = '127.0.0.1', rabbit_port:int = 5672, type_name:str = 'fanout', durable:bool = True):
     loop = asyncio.get_running_loop()
-    port = os.getenv('RABBITMQ_LISTEN_PORT_DJANGO') or 520
+    host = os.getenv('RABBITMQ_LISTEN_HOST_DJANGO') or host or "0.0.0.0"
+    port = os.getenv('RABBITMQ_LISTEN_PORT_DJANGO') or port or 520
     print(
         make_colors("server listen on", 'lg') + " " + \
-        make_colors("0.0.0.0", 'b', 'ly') + ":" + \
+        make_colors(host, 'b', 'ly') + ":" + \
         make_colors(str(port), 'b', 'lc')
     )
+    
+    # def __init__(self, loop, rabbit_host = '127.0.0.1', rabbit_port = 5672, type_name = 'fanout', durable = True):
     transport, protocol = await loop.create_datagram_endpoint(
-        lambda: MyProtocol(loop),
-        local_addr=('0.0.0.0', port)
+        lambda: MyProtocol(loop, rabbit_host, rabbit_port, type_name, durable),
+        local_addr=(host, port)
     )
 
     #try:
@@ -170,9 +175,51 @@ async def start_udp_server():
         transport.close()
         await transport.wait_closed()
 
+async def main(host: str = '0.0.0.0', port: int = 520, rabbit_host:str = '127.0.0.1', rabbit_port:int = 5672, type_name:str = 'fanout', durable:bool = True):
+    await start_udp_server(host, port, rabbit_host, rabbit_port, type_name, durable)
 
-async def main():
-    await start_udp_server()
+def usage():
+    
+    
+    print("""
+         _____           _               _____                     
+        / ____|         | |             |  __ \                    
+       | (___  _   _ ___| | ___   __ _  | |__) | __ _____  ___   _ 
+        \___ \| | | / __| |/ _ \ / _` | |  ___/ '__/ _ \ \/ / | | |
+        ____) | |_| \__ \ | (_) | (_| | | |   | | | (_) >  <| |_| |
+       |_____/ \__, |___/_|\___/ \__, | |_|   |_|  \___/_/\_\\__,  |
+                __/ |             __/ |                       __/ |
+               |___/             |___/                       |___/ 
+    """)
+    
+    print("""
+       _ _            _                __                   _                          __               _     _     _ _                   
+      | (_)          | |               \ \                 | |                         \ \             | |   | |   (_) |                  
+   ___| |_  ___ _ __ | |_   ______ _____\ \   ___ _   _ ___| | ___   __ _   ______ _____\ \   _ __ __ _| |__ | |__  _| |_ _ __ ___   __ _ 
+  / __| | |/ _ \ '_ \| __| |______|______> > / __| | | / __| |/ _ \ / _` | |______|______> > | '__/ _` | '_ \| '_ \| | __| '_ ` _ \ / _` |
+ | (__| | |  __/ | | | |_               / /  \__ \ |_| \__ \ | (_) | (_| |              / /  | | | (_| | |_) | |_) | | |_| | | | | | (_| |
+  \___|_|_|\___|_| |_|\__|             /_/   |___/\__, |___/_|\___/ \__, |             /_/   |_|  \__,_|_.__/|_.__/|_|\__|_| |_| |_|\__, |
+                                                   __/ |             __/ |                                                             | |
+                                                  |___/             |___/                                                              |_|
+""")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-P', '--port', action='store', help = 'Port listen on, default = 520', default = 520, type = int)
+    parser.add_argument('-H', '--host', action='store', help = 'Host listen on, default = 0.0.0.0', default = '0.0.0.0')
+    parser.add_argument('-rh', '--rabbit-host', action='store', help = 'RabbitMq host name / IP, default = 127.0.0.1', default = '127.0.0.1')
+    parser.add_argument('-rp', '--rabbit-port', action='store', help = 'RabbitMq port, default = 5672', default = 5672, type = int)
+    parser.add_argument('-t', '--exchange-type', action='store', help = 'RabbitMq exchange type, default = fanout', default = 'fanout')
+    parser.add_argument('-d', '--durable', action='store_true', help = 'RabbitMq set durable')
+    
+    if len(sys.argv) == 1:
+        parser.print_help()
+        asyncio.run(main())
+    else:
+        args = parser.parse_args()
+        asyncio.run(main(args.host, args.port, args.rabbit_host, args.rabbit_port, args.exchange_type, args.durable))
+    
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    # asyncio.run(main())
+    # rabbitmq host test: 202.43.168.243
+    usage()
